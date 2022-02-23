@@ -7,11 +7,12 @@ import org.apache.curator.framework.recipes.cache.*;
 import org.apache.curator.retry.ExponentialBackoffRetry;
 import org.apache.zookeeper.CreateMode;
 
+
 /**
- * @Desctiption
- * @Author wallace
- * @Date 2021/5/18
+ * Node
+ * @author WriteWolf
  */
+@SuppressWarnings("ALL")
 public class Node {
 
 	public static final Node INSTANCE = new Node();
@@ -24,6 +25,7 @@ public class Node {
 	}
 
 	public void start(String connectString) throws Exception{
+
 		if(connectString == null || connectString.isEmpty()){
 			throw new Exception("connectString is null or empty");
 		}
@@ -33,36 +35,34 @@ public class Node {
 				.retryPolicy(new ExponentialBackoffRetry(1000, 3))
 				.build();
 
+		// Create ZooKeeper Path
 		String groupNodePath = "/com/taobao/book/operating";
 		String masterNodePath = groupNodePath + "/master";
 		String slaveNodePath = groupNodePath + "/slave";
 
-		//watch master node
+		//Watch Master Node
 		PathChildrenCache pathChildrenCache = new PathChildrenCache(client, groupNodePath, true);
-		pathChildrenCache.getListenable().addListener(new PathChildrenCacheListener() {
-			@Override
-			public void childEvent(CuratorFramework client, PathChildrenCacheEvent event) throws Exception {
-				if(event.getType().equals(PathChildrenCacheEvent.Type.CHILD_REMOVED)){
-					String childPath = event.getData().getPath();
-					System.out.println("child removed: " + childPath);
+		pathChildrenCache.getListenable().addListener((client1, event) -> {
+			if(event.getType().equals(PathChildrenCacheEvent.Type.CHILD_REMOVED)){
+				String childPath = event.getData().getPath();
+				System.out.println("child removed: " + childPath);
 
-					if(masterNodePath.equals(childPath)){
-						switchMaster(client, masterNodePath, slaveNodePath);
-					}
-				} else if(event.getType().equals(PathChildrenCacheEvent.Type.CONNECTION_LOST)) {
-					System.out.println("connection lost, become slave");
-					role = "slave";
-				} else if(event.getType().equals(PathChildrenCacheEvent.Type.CONNECTION_RECONNECTED)) {
-					System.out.println("connection connected……");
-					if(!becomeMaster(client, masterNodePath)){
-						becomeSlave(client, slaveNodePath);
-					}
+				if(masterNodePath.equals(childPath)){
+					switchMaster(client1, masterNodePath, slaveNodePath);
 				}
-				else{
-					System.out.println("path changed: " + event.getData().getPath());
+			} else if(event.getType().equals(PathChildrenCacheEvent.Type.CONNECTION_LOST)) {
+				System.out.println("connection lost, become slave");
+				role = "slave";
+			} else if(event.getType().equals(PathChildrenCacheEvent.Type.CONNECTION_RECONNECTED)) {
+				System.out.println("connection connected……");
+				if(!becomeMaster(client1, masterNodePath)){
+					becomeSlave(client1, slaveNodePath);
 				}
-
 			}
+			else{
+				System.out.println("path changed: " + event.getData().getPath());
+			}
+
 		});
 
 		client.start();
@@ -114,4 +114,5 @@ public class Node {
 			}
 		}
 	}
+
 }
